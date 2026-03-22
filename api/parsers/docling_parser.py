@@ -203,6 +203,8 @@ def _build_invoice_summary(sections: List[Dict], tables: List[Dict]) -> Dict[str
 
 # Module-level singleton — avoids re-initializing torch models on every request
 _converter = None
+_converter_no_tables = None  # fallback: table structure disabled
+
 
 def _get_converter():
     global _converter
@@ -210,6 +212,27 @@ def _get_converter():
         from docling.document_converter import DocumentConverter
         _converter = DocumentConverter()
     return _converter
+
+
+def _get_converter_no_tables():
+    """Fallback converter with table structure model disabled.
+
+    Avoids TorchScript interpreter errors that occur when docling-ibm-models
+    (built against an older torch) is paired with torch ≥ 2.x pulled in by
+    marker-pdf / surya-ocr.  Text, sections, and figures are unaffected; only
+    the ML-based table grid reconstruction is skipped.
+    """
+    global _converter_no_tables
+    if _converter_no_tables is None:
+        from docling.document_converter import DocumentConverter
+        from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
+        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        opts = PdfPipelineOptions()
+        opts.do_table_structure = False
+        _converter_no_tables = DocumentConverter(
+            pipeline_options=opts,
+        )
+    return _converter_no_tables
 
 
 def run_docling(pdf_bytes: bytes) -> Dict[str, Any]:
@@ -220,8 +243,20 @@ def run_docling(pdf_bytes: bytes) -> Dict[str, Any]:
             tmp_path = tmp.name
 
         try:
-            converter = _get_converter()
-            result = converter.convert(tmp_path)
+            try:
+                converter = _get_converter()
+                result = converter.convert(tmp_path)
+            except RuntimeError as torch_err:
+                # TorchScript interpreter errors happen when docling-ibm-models
+                # was built against an older torch and a newer torch (≥2.x) is
+                # present (e.g. pulled in by marker-pdf / surya-ocr).
+                # Fall back to a pipeline with table-structure ML disabled so
+                # text, sections, and figures still work correctly.
+                if "TorchScript" in str(torch_err) or "torchscript" in str(torch_err).lower():
+                    converter = _get_converter_no_tables()
+                    result = converter.convert(tmp_path)
+                else:
+                    raise
             doc = result.document
         finally:
             os.unlink(tmp_path)
