@@ -1,0 +1,20 @@
+# FastAPI + server
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+
+# PDF parsers
+pdfplumber==0.11.0
+
+# unstructured — local inference, no API key required
+# Note: detectron2 is installed via GitHub release URL in Dockerfile
+unstructured==0.13.7
+unstructured-inference==0.7.25
+unstructured.pytesseract==0.3.12
+
+# docling — structured content extraction with ML models
+docling==2.5.2
+
+# Common deps
+Pillow>=10.0.0,<11.0.0
+pillow-heif==0.22.0

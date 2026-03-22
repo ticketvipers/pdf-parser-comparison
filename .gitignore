@@ -1,0 +1,18 @@
+# Python
+api/venv/
+api/__pycache__/
+api/**/__pycache__/
+api/*.pyc
+*.egg-info/
+.env
+
+# Next.js
+web/.next/
+web/node_modules/
+web/.env.local
+
+# Misc
+.DS_Store
+/tmp/
+*.log
+samples/

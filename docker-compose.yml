@@ -1,0 +1,37 @@
+version: "3.9"
+
+# NOTE: First build will be slow (~15-30 min) — docling ML models are downloaded during the image build.
+# Hardware target: arm64 (Apple Silicon / Mac Mini M4). Never amd64.
+
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ALLOWED_ORIGINS=http://localhost:3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      api:
+        condition: service_healthy
